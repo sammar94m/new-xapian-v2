@@ -1,0 +1,6 @@
+common/bin_xapian_inspect-posixy_wrapper.o: common/posixy_wrapper.cc \
+ /usr/include/stdc-predef.h config.h
+
+/usr/include/stdc-predef.h:
+
+config.h:

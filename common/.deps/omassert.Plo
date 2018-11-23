@@ -1,0 +1,6 @@
+common/omassert.lo: common/omassert.cc /usr/include/stdc-predef.h \
+ config.h
+
+/usr/include/stdc-predef.h:
+
+config.h:

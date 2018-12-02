@@ -1,9 +1,8 @@
-/** @file inmemory_database.h
- * @brief C++ class definition for inmemory database access
- */
-/* Copyright 1999,2000,2001 BrightStation PLC
+/* inmemory_database.h: C++ class definition for inmemory database access
+ *
+ * Copyright 1999,2000,2001 BrightStation PLC
  * Copyright 2002 Ananova Ltd
- * Copyright 2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2014,2015 Olly Betts
+ * Copyright 2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2014 Olly Betts
  * Copyright 2006,2009 Lemur Consulting Ltd
  *
  * This program is free software; you can redistribute it and/or
@@ -38,7 +37,7 @@
 #include "internaltypes.h"
 #include "omassert.h"
 #include "noreturn.h"
-
+#include "tmp.h"
 using namespace std;
 
 // Class representing a posting (a term/doc pair, and
@@ -64,7 +63,7 @@ class InMemoryPosting {
 
 class InMemoryTermEntry {
     public:
-	string tname;
+	kdmtStr tname;
 	vector<Xapian::termpos> positions; // Sorted vector of positions
 	Xapian::termcount wdf;
 
@@ -245,15 +244,15 @@ class InMemoryDatabase : public Xapian::Database::Internal {
     friend class InMemoryAllDocsPostList;
     friend class InMemoryDocument;
 
-    map<string, InMemoryTerm> postlists;
+    map<kdmtStr, InMemoryTerm> postlists;
     vector<InMemoryDoc> termlists;
-    vector<std::string> doclists;
-    vector<std::map<Xapian::valueno, string>> valuelists;
+    vector<kdmtStr> doclists;
+    vector<std::map<Xapian::valueno, string> > valuelists;
     std::map<Xapian::valueno, ValueStats> valuestats;
 
     vector<Xapian::termcount> doclengths;
 
-    std::map<string, string> metadata;
+    std::map<kdmtStr, string> metadata;
 
     Xapian::doccount totdocs;
 
@@ -296,8 +295,10 @@ class InMemoryDatabase : public Xapian::Database::Internal {
     // a problem as we only try to call them through the base class
     // (where they aren't hidden) but some compilers generate a warning
     // about the hiding.
+#ifndef _MSC_VER
     using Xapian::Database::Internal::delete_document;
     using Xapian::Database::Internal::replace_document;
+#endif
     void delete_document(Xapian::docid did);
     void replace_document(Xapian::docid did, const Xapian::Document & document);
     //@}

@@ -1,7 +1,7 @@
 /** @file inmemory_document.cc
  * @brief A document read from a InMemoryDatabase.
  */
-/* Copyright (C) 2008,2009,2016 Olly Betts
+/* Copyright (C) 2008,2009 Olly Betts
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -25,6 +25,9 @@
 #include "inmemory_database.h"
 
 #include "debuglog.h"
+
+#include "tmp.h"
+
 
 string
 InMemoryDocument::do_get_value(Xapian::valueno slot) const
@@ -65,5 +68,5 @@ InMemoryDocument::do_get_data() const
     if (db->closed) InMemoryDatabase::throw_database_closed();
     if (rare(did > db->valuelists.size()))
 	RETURN(string());
-    RETURN(db->doclists[did - 1]);
+    RETURN(db->doclists[did - 1].getStr());
 }

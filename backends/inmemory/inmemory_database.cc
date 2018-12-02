@@ -2,7 +2,7 @@
  *
  * Copyright 1999,2000,2001 BrightStation PLC
  * Copyright 2002 Ananova Ltd
- * Copyright 2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2014,2017 Olly Betts
+ * Copyright 2002,2003,2004,2005,2006,2007,2008,2009,2010 Olly Betts
  * Copyright 2006,2009 Lemur Consulting Ltd
  *
  * This program is free software; you can redistribute it and/or
@@ -40,6 +40,9 @@
 
 #include <xapian/error.h>
 #include <xapian/valueiterator.h>
+
+#include "tmp.h"
+
 
 using std::make_pair;
 using Xapian::Internal::intrusive_ptr;
@@ -220,7 +223,7 @@ InMemoryTermList::get_termfreq() const
     Assert(!at_end());
 
     Xapian::doccount tf;
-    db->get_freqs((*pos).tname, &tf, NULL);
+    db->get_freqs((*pos).tname.getStr(), &tf, NULL);
     return tf;
 }
 
@@ -248,7 +251,7 @@ InMemoryTermList::get_termname() const
     if (db->is_closed()) InMemoryDatabase::throw_database_closed();
     Assert(started);
     Assert(!at_end());
-    return (*pos).tname;
+    return (*pos).tname.getStr();
 }
 
 TermList *
@@ -265,11 +268,12 @@ InMemoryTermList::next()
 }
 
 TermList *
-InMemoryTermList::skip_to(const string & term)
+InMemoryTermList::skip_to(const string & term_)
 {
     if (rare(db->is_closed()))
 	InMemoryDatabase::throw_database_closed();
 
+    kdmtStr term(term_);
     while (pos != end && pos->tname < term) {
 	++pos;
     }
@@ -290,14 +294,14 @@ Xapian::termcount
 InMemoryTermList::positionlist_count() const
 {
     if (db->is_closed()) InMemoryDatabase::throw_database_closed();
-    return db->positionlist_count(did, (*pos).tname);
+    return db->positionlist_count(did, (*pos).tname.getStr());
 }
 
 Xapian::PositionIterator
 InMemoryTermList::positionlist_begin() const
 {
     if (db->is_closed()) InMemoryDatabase::throw_database_closed();
-    return Xapian::PositionIterator(db->open_position_list(did, (*pos).tname));
+    return Xapian::PositionIterator(db->open_position_list(did, (*pos).tname.getStr()));
 }
 
 /////////////////////////////
@@ -407,7 +411,7 @@ InMemoryDatabase::InMemoryDatabase()
 
     // We keep an empty entry in postlists for convenience of implementing
     // allterms iteration and returning a PostList for an absent term.
-    postlists.insert(make_pair(string(), InMemoryTerm()));
+    postlists.insert(make_pair(kdmtStr(string()), InMemoryTerm()));
 }
 
 InMemoryDatabase::~InMemoryDatabase()
@@ -444,7 +448,7 @@ InMemoryDatabase::open_post_list(const string & tname) const
 	intrusive_ptr<const InMemoryDatabase> ptrtothis(this);
 	return new InMemoryAllDocsPostList(ptrtothis);
     }
-    map<string, InMemoryTerm>::const_iterator i = postlists.find(tname);
+    map<kdmtStr, InMemoryTerm>::const_iterator i = postlists.find(kdmtStr(tname));
     if (i == postlists.end() || i->second.term_freq == 0) {
 	i = postlists.begin();
 	// Check that our dummy entry for string() is present.
@@ -467,7 +471,7 @@ InMemoryDatabase::get_freqs(const string & term,
 			    Xapian::termcount * collfreq_ptr) const
 {
     if (closed) InMemoryDatabase::throw_database_closed();
-    map<string, InMemoryTerm>::const_iterator i = postlists.find(term);
+    map<kdmtStr, InMemoryTerm>::const_iterator i = postlists.find(kdmtStr(term));
     if (i != postlists.end()) {
 	if (termfreq_ptr)
 	    *termfreq_ptr = i->second.term_freq;
@@ -480,6 +484,7 @@ InMemoryDatabase::get_freqs(const string & term,
 	    *collfreq_ptr = 0;
     }
 }
+
 
 Xapian::doccount
 InMemoryDatabase::get_value_freq(Xapian::valueno slot) const
@@ -584,7 +589,7 @@ std::string
 InMemoryDatabase::get_metadata(const std::string & key) const
 {
     if (closed) InMemoryDatabase::throw_database_closed();
-    map<string, string>::const_iterator i = metadata.find(key);
+    map<kdmtStr, string>::const_iterator i = metadata.find(kdmtStr(key));
     if (i == metadata.end())
 	return string();
     return i->second;
@@ -605,9 +610,9 @@ InMemoryDatabase::set_metadata(const std::string & key,
 {
     if (closed) InMemoryDatabase::throw_database_closed();
     if (!value.empty()) {
-	metadata[key] = value;
+	metadata[kdmtStr(key)] = value;
     } else {
-	metadata.erase(key);
+	metadata.erase(kdmtStr(key));
     }
 }
 
@@ -622,10 +627,10 @@ InMemoryDatabase::positionlist_count(Xapian::docid did,
     const InMemoryDoc &doc = termlists[did - 1];
 
     InMemoryTermEntry temp;
-    temp.tname = tname;
+    temp.tname = kdmtStr(tname);
     auto t = lower_bound(doc.terms.begin(), doc.terms.end(),
 			 temp, InMemoryTermEntryLessThan());
-    if (t != doc.terms.end() && t->tname == tname) {
+    if (t != doc.terms.end() && t->tname == kdmtStr(tname)) {
 	return t->positions.size();
     }
     return 0;
@@ -640,16 +645,17 @@ InMemoryDatabase::open_position_list(Xapian::docid did,
 	const InMemoryDoc &doc = termlists[did - 1];
 
 	InMemoryTermEntry temp;
-	temp.tname = tname;
+	temp.tname = kdmtStr(tname);
 	auto t = lower_bound(doc.terms.begin(), doc.terms.end(),
 			     temp, InMemoryTermEntryLessThan());
-	if (t != doc.terms.end() && t->tname == tname) {
+	if (t != doc.terms.end() && t->tname == kdmtStr(tname)) {
 	    return new InMemoryPositionList(t->positions);
 	}
     }
     return new InMemoryPositionList(false);
 }
 
+//TODO modify function to take values_ as map<Xapian::valueno, kdmtStr>  -- is that good ?! copying all map ...
 void
 InMemoryDatabase::add_values(Xapian::docid did,
 			     const map<Xapian::valueno, string> &values_)
@@ -704,8 +710,8 @@ InMemoryDatabase::delete_document(Xapian::docid did)
 	throw Xapian::DocNotFoundError(string("Docid ") + str(did) +
 				 string(" not found"));
     }
-    termlists[did - 1].is_valid = false;
-    doclists[did - 1] = string();
+    termlists[did-1].is_valid = false;
+    doclists[did-1] = kdmtStr(string());
     map<Xapian::valueno, string>::const_iterator j;
     for (j = valuelists[did - 1].begin(); j != valuelists[did - 1].end(); ++j) {
 	map<Xapian::valueno, ValueStats>::iterator i;
@@ -728,7 +734,7 @@ InMemoryDatabase::delete_document(Xapian::docid did)
     for (i = termlists[did - 1].terms.begin();
 	 i != termlists[did - 1].terms.end();
 	 ++i) {
-	map<string, InMemoryTerm>::iterator t = postlists.find(i->tname);
+	map<kdmtStr, InMemoryTerm>::iterator t = postlists.find(kdmtStr(i->tname));
 	Assert(t != postlists.end());
 	t->second.collection_freq -= i->wdf;
 	--t->second.term_freq;
@@ -782,7 +788,7 @@ InMemoryDatabase::replace_document(Xapian::docid did,
     for (i = termlists[did - 1].terms.begin();
 	 i != termlists[did - 1].terms.end();
 	 ++i) {
-	map<string, InMemoryTerm>::iterator t = postlists.find(i->tname);
+	map<kdmtStr, InMemoryTerm>::iterator t = postlists.find(kdmtStr(i->tname));
 	Assert(t != postlists.end());
 	t->second.collection_freq -= i->wdf;
 	--t->second.term_freq;
@@ -800,7 +806,7 @@ InMemoryDatabase::replace_document(Xapian::docid did,
     }
 
     doclengths[did - 1] = 0;
-    doclists[did - 1] = document.get_data();
+    doclists[did - 1] = kdmtStr(document.get_data());
 
     finish_add_doc(did, document);
 }
@@ -852,8 +858,10 @@ InMemoryDatabase::finish_add_doc(Xapian::docid did, const Xapian::Document &docu
 	Assert(did > 0 && did <= doclengths.size());
 	doclengths[did - 1] += i.get_wdf();
 	totlen += i.get_wdf();
-	postlists[*i].collection_freq += i.get_wdf();
-	++postlists[*i].term_freq;
+
+	kdmtStr tmp_kdmtStr(*i);
+	postlists[tmp_kdmtStr].collection_freq += i.get_wdf();
+	++postlists[tmp_kdmtStr].term_freq;
     }
     swap(termlists[did - 1], doc);
 
@@ -863,7 +871,7 @@ InMemoryDatabase::finish_add_doc(Xapian::docid did, const Xapian::Document &docu
 void
 InMemoryDatabase::make_term(const string & tname)
 {
-    postlists[tname];  // Initialise, if not already there.
+    postlists[kdmtStr(tname)];  // Initialise, if not already there.
 }
 
 Xapian::docid
@@ -871,7 +879,7 @@ InMemoryDatabase::make_doc(const string & docdata)
 {
     termlists.push_back(InMemoryDoc(true));
     doclengths.push_back(0);
-    doclists.push_back(docdata);
+    doclists.push_back(kdmtStr(docdata));
 
     AssertEqParanoid(termlists.size(), doclengths.size());
 
@@ -901,11 +909,11 @@ void InMemoryDatabase::make_posting(InMemoryDoc * doc,
     posting.valid = true;
 
     // Now record the posting
-    postlists[tname].add_posting(posting);
+    postlists[kdmtStr(tname)].add_posting(posting);
 
     // Make the termentry
     InMemoryTermEntry termentry;
-    termentry.tname = tname;
+    termentry.tname = kdmtStr(tname);
     if (use_position) {
 	termentry.positions.push_back(position);
     }
@@ -920,7 +928,7 @@ InMemoryDatabase::term_exists(const string & tname) const
 {
     if (closed) InMemoryDatabase::throw_database_closed();
     Assert(!tname.empty());
-    map<string, InMemoryTerm>::const_iterator i = postlists.find(tname);
+    map<kdmtStr, InMemoryTerm>::const_iterator i = postlists.find(kdmtStr(tname));
     if (i == postlists.end()) return false;
     return (i->second.term_freq != 0);
 }

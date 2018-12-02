@@ -1,8 +1,7 @@
-/** @file inmemory_alltermslist.h
- * @brief Iterate all terms in an inmemory db
- */
-/* Copyright 1999,2000,2001 BrightStation PLC
- * Copyright 2003,2008,2009,2011 Olly Betts
+/* inmemory_alltermslist.h
+ *
+ * Copyright 1999,2000,2001 BrightStation PLC
+ * Copyright 2003,2008,2009 Olly Betts
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -25,6 +24,8 @@
 
 #include "backends/alltermslist.h"
 #include "inmemory_database.h"
+#include "tmp.h"
+using std::pair;
 
 /** class for alltermslists over several databases */
 class InMemoryAllTermsList : public AllTermsList
@@ -36,22 +37,29 @@ class InMemoryAllTermsList : public AllTermsList
 	/// Assignment is not allowed.
 	void operator=(const InMemoryAllTermsList &);
 
-	const std::map<string, InMemoryTerm> *tmap;
+	const std::map<kdmtStr, InMemoryTerm> *tmap;
 
-	std::map<string, InMemoryTerm>::const_iterator it;
+	std::map<kdmtStr, InMemoryTerm>::const_iterator it;
 
 	Xapian::Internal::intrusive_ptr<const InMemoryDatabase> database;
 
-	string prefix;
+	kdmtStr prefix;
 
     public:
 	/// Constructor.
-	InMemoryAllTermsList(const std::map<string, InMemoryTerm> *tmap_,
-			     Xapian::Internal::intrusive_ptr<const InMemoryDatabase> database_,
-			     const string & prefix_)
-	    : tmap(tmap_), it(tmap->begin()), database(database_),
-	      prefix(prefix_)
-	{
+
+	InMemoryAllTermsList(
+			const std::map<kdmtStr, InMemoryTerm> *tmap_,
+			Xapian::Internal::intrusive_ptr<const InMemoryDatabase> database_,
+			const string & prefix_) :
+			tmap(tmap_), it(tmap->begin()), database(database_),prefix(prefix_) {
+
+//		tmap = new std::map<kdmtStr, InMemoryTerm>();
+//		for (auto iter = tmap_->begin(); iter != tmap_->end() ; ++iter ){
+//
+//			tmap->insert(pair<kdmtStr,InMemoryTerm >(kdmtStr(iter->first), iter->second));
+//		}
+
 	}
 
 	// Gets current termname

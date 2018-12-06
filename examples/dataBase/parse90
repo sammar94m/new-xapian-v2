@@ -1,0 +1,19 @@
+#! /bin/bash
+for percent in `seq 1 100`;do
+
+linesNum=$((`wc $1|cut -d" " -f3` / 100 * $percent))
+mkdir first$percent
+mkdir last$((100 - $percent))
+
+i=0
+cat $1|while read line;do
+       if [[ $i -lt $linesNum ]];then
+	       echo $line >> ./first$percent/data
+       else
+	      echo $line >> ./last$((100 - $percent))/data
+	fi
+
+      ((i++))
+done
+echo $percent
+done

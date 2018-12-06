@@ -1,0 +1,18 @@
+#! /bin/bash
+linesNum=$((`wc $1|cut -d" " -f3` / 100 * $2))
+mkdir first$2
+mkdir last$((100 - $2))
+
+i=0
+cat $1|while read line;do
+       if [[ $i -lt $linesNum ]];then
+	       echo $line >> ./first$2/data
+       else
+	      echo $line >> ./last$((100 - $2))/data
+	fi
+
+      ((i++))
+done
+
+
+

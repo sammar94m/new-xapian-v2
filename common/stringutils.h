@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <string>
 #include <cstring>
+#include <experimental/string_view>
 
 /** Helper macro for STRINGIZE - the nested call is required because of how
  *  # works in macros.
@@ -42,11 +43,14 @@
  */
 #define CONST_STRLEN(S) (sizeof(S"") - 1)
 
+using std::experimental::string_view;
+
 inline bool
 startswith(const std::string & s, char pfx)
 {
     return !s.empty() && s[0] == pfx;
 }
+
 
 inline bool
 startswith(const std::string & s, const char * pfx, size_t len)
@@ -64,6 +68,11 @@ inline bool
 startswith(const std::string & s, const std::string & pfx)
 {
     return startswith(s, pfx.data(), pfx.size());
+}
+
+inline bool 
+startswith(const string_view & s, const string_view & pfx){
+    return startswith(s.to_string(), pfx.to_string().data(), pfx.size());
 }
 
 inline bool

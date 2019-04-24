@@ -24,7 +24,7 @@
 
 #include "backends/alltermslist.h"
 #include "inmemory_database.h"
-#include "tmp.h"
+//#include "tmp.h"
 using std::pair;
 
 /** class for alltermslists over several databases */

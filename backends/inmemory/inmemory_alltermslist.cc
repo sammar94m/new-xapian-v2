@@ -23,7 +23,7 @@
 #include "inmemory_alltermslist.h"
 
 #include "stringutils.h"
-#include "tmp.h"
+//#include "tmp.h"
 
 
 string InMemoryAllTermsList::get_termname() const {

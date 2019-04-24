@@ -13,13 +13,18 @@
 //TODO optimize keydomet generation for SSO
 //TODO consider implications of storage type when char type is signed vs. unsigned
 //TODO make keydomet usage stats optional
+//TODO measure memory footprint in term of cache lines on various benchmarks.
+//     mostly, eval the effect of going from a 32B string object to 40B with keydomet, ruining cache line packing.
+//TODO consider placing the keydomet in the SSO buffer when the string is long (and not using keydomet otherwise).
+//     since keydomet isn't much better than SSO, the memory overhead reduction could outweigh not using keydomet on
+//     short strings. should probably be a compile time optimization choice.
+
+
+//typedef KeyDometStr<std::experimental::string_view, kdmt::KeyDometSize::SIZE_32BIT> kdmtStr;
 
 namespace kdmt
 {
-//    using std::experimental::string_view;
-
-typedef std::string string_view;
-
+    using std::experimental::string_view;
 
     enum class KeyDometSize : uint8_t
     {
@@ -68,20 +73,21 @@ typedef std::string string_view;
     // Helper functions to provide access to the raw c-string array.
     // New string types should add an overload, which uses that type's API.
     //
-    inline const char* getRawStr(const char* str) { return str; }
-    inline const char* getRawStr(const std::string& str) { return str.data(); }
+    //const char* getRawStr(const char* str) { return str; }
+    //const char* getRawStr(const std::string& str) { return str.data(); }
+    //const char* getRawStr(const string_view& str) { return str.data(); }
 
     //
     // Helper function for swapping bytes, turning the big endian order in the string into
     // a proper little endian number. For now, only GCC is supported due to the use of intrinsics.
     //
-    inline void flipBytes(uint16_t& val) { val = __builtin_bswap16(val); }
-     inline void  flipBytes(uint32_t& val) { val = __builtin_bswap32(val); }
-     inline void  flipBytes(uint64_t& val) { val = __builtin_bswap64(val); }
-     inline void  flipBytes(kdmt128_t& val) {
-        val.lsbs = __builtin_bswap64(val.lsbs);
-        val.msbs = __builtin_bswap64(val.msbs);
-    }
+    //void flipBytes(uint16_t& val) { val = __builtin_bswap16(val); }
+    //void flipBytes(uint32_t& val) { val = __builtin_bswap32(val); }
+    //void flipBytes(uint64_t& val) { val = __builtin_bswap64(val); }
+    //void flipBytes(kdmt128_t& val) {
+    //    val.lsbs = __builtin_bswap64(val.lsbs);
+    //    val.msbs = __builtin_bswap64(val.msbs);
+    //}
 
     //
     // Helper function that turns the string's keydomet into a number.
@@ -91,10 +97,11 @@ typedef std::string string_view;
     template<typename KeyDometT, typename StrImp>
     KeyDometT strToPrefix(const StrImp& str)
     {
-        const char* cstr = getRawStr(str);
+        const char* cstr = str.data();//getRawStr(str);
         KeyDometT trg;
         strncpy((char*)&trg, cstr, sizeof(trg)); // short strings are padded with zeros
-        flipBytes(trg);
+        //flipBytes(trg);
+	trg = __builtin_bswap64(trg);
         return trg;
     }
 
@@ -113,14 +120,11 @@ typedef std::string string_view;
 
         KeyDomet(const KeyDomet& other) : val(other.val)
         {}
-        KeyDomet(KeyDomet& other) : val(other.val)
-        {}
 
-        KeyDomet(KeyDomet&&)  = default;
-        KeyDomet()  = default;
+        KeyDomet(KeyDomet&&) noexcept = default;
 
-        KeyDomet& operator=(KeyDomet&&)  = default;
-        KeyDomet& operator=(const KeyDomet&)  = default;
+        KeyDomet& operator=(KeyDomet&&) noexcept = default;
+        KeyDomet& operator=(const KeyDomet&) noexcept = default;
 
         KeyDometType getVal() const
         {
@@ -147,8 +151,8 @@ typedef std::string string_view;
             // if the last byte/char of the keydomet is all zeros, the string must
             // have been shorter than the keydomet's capacity.
             // note: this won't always be correct when working with Unicode strings!
-            constexpr KeyDometType LastByteMask = 0xFF;
-            return (val & LastByteMask) == 0;
+            constexpr KeyDometType LastByteMask{0xFFUL};
+            return (val & LastByteMask) == KeyDometType{0UL};
         }
 
     private:
@@ -157,6 +161,8 @@ typedef std::string string_view;
 
     };
 
+    //size_t usedPrefix = 0;
+    //size_t usedStr = 0;
 
     template<class StrImp_, KeyDometSize Size_>
     class KeyDometStr
@@ -167,25 +173,16 @@ typedef std::string string_view;
         using StrImp = StrImp_;
         static constexpr KeyDometSize Size = Size_;
 
-        explicit KeyDometStr(const StrImp_& other) :
-                prefix{other}, str{other}
-        {}
-        explicit KeyDometStr() :
-                prefix{}, str{}
-        {}
+        KeyDometStr(const StrImp_& other = "") : prefix{other}, str{other} {}
 
         KeyDometStr(const KeyDometStr& other) :
                 prefix{other.prefix}, str{other.str}
         {}
 
-        KeyDometStr(KeyDometStr& other) :
-                prefix{other.prefix}, str{other.str}
-        {}
+        KeyDometStr(KeyDometStr&&) noexcept = default;
 
-        KeyDometStr(KeyDometStr&&)  = default;
-
-        KeyDometStr& operator=(KeyDometStr&&)  = default;
-        KeyDometStr& operator=(const KeyDometStr&)  = default;
+        KeyDometStr& operator=(KeyDometStr&&) = default;
+        KeyDometStr& operator=(const KeyDometStr&) = default;
 
         template<typename OtherImp, KeyDometSize OtherSize>
         friend class KeyDometStr;
@@ -193,20 +190,20 @@ typedef std::string string_view;
         template<typename Imp>
         int compare(const KeyDometStr<Imp, Size_>& other) const
         {
-
-        	//std::cout<<"+++++ comparing keydomet"<<std::endl;
-
-        	if (this->prefix != other.prefix)
+            if (this->prefix != other.prefix)
             {
+                //++usedPrefix;
                 return diffAsOneOrMinusOne(this->prefix, other.prefix);
             }
             else
             {
                 if (this->prefix.stringShorterThanKeydomet())
                 {
+                    //++usedPrefix;
                     return 0;
                 }
-                return strcmp(getRawStr(str) + sizeof(Size_), getRawStr(other.str) + sizeof(Size_));
+                //++usedStr;
+                return strcmp(str.data() + sizeof(Size_), other.str.data() + sizeof(Size_));
             }
         }
 
@@ -233,15 +230,15 @@ typedef std::string string_view;
             return prefix;
         }
 
-        const StrImp_& getStr() const
+        const string getStr() const
         {
-            return str;
+            return str.to_string();
         }
+	
 
-        bool empty() const {
-        	return str.empty();
-        }
-
+	bool empty() const {
+		return str.empty();
+	}
     private:
 
         // using composition instead of inheritance (from StrImp) to make sure
@@ -257,15 +254,15 @@ typedef std::string string_view;
         }
 
     };
-
-    inline std::ostream& operator<<(std::ostream& os, const kdmt128_t& val)
+/*
+    std::ostream& operator<<(std::ostream& os, const kdmt128_t& val)
     {
         os << val.msbs << val.lsbs;
         return os;
     }
 
     template<typename StrImp, KeyDometSize Size>
-    inline std::ostream& operator<<(std::ostream& os, const KeyDometStr<StrImp, Size>& hk)
+    std::ostream& operator<<(std::ostream& os, const KeyDometStr<StrImp, Size>& hk)
     {
         const StrImp& str = hk.getStr();
         os << str;
@@ -296,6 +293,68 @@ typedef std::string string_view;
         }
     };
 
+    namespace imp
+    {
+        // Searching associative containers (namely, sorted rather than hashed) could only be done using
+        // the exact key type till C++14. From C++14, any type that can be compared with the key type can
+        // be used. For instance, a std::string_view can be used in order to find a std::string key.
+        // this is very useful when a key is given as a std::string but a KeyDomet should be constructed
+        // in order to do the lookup: instead of creating a KeyDomet that will own a copy of the std::string
+        // (with all the mess involved with the creation of the copy - allocation etc.), a KeyDometView is
+        // used, merely referencing the original std::string.
+        // To use the above feature, the comparator used by the container must be transparent, namely have
+        // a is_transparent member. The code below detects the presence of that member, and the result is
+        // used to determine whether a KeyDomet or KeyDometView should be constructed for lookups.
+        template<typename...>
+        using VoidT = void;
+
+        struct NonTransparent {};
+
+        auto getComparator(...) -> NonTransparent;
+
+        template<template<class, class...> class Container, class KD, class... Args>
+        auto getComparator(const Container<KD, Args...>&) -> typename Container<KD, Args...>::key_compare;
+
+        template<class Comparator, class = VoidT<>>
+        struct HasTransparentFlagHelper : std::false_type {};
+
+        template<class Comparator>
+        struct HasTransparentFlagHelper<Comparator, VoidT<typename Comparator::is_transparent>> : std::true_type {};
+
+        template<template<class, class...> class Container, class KD, class... Args>
+        auto isTransparent(const Container<KD, Args...>& c) ->
+        std::enable_if_t<HasTransparentFlagHelper<decltype(getComparator(c))>::value, std::true_type>;
+
+        auto isTransparent(...) -> std::false_type;
+
+        template<template<class, class...> class Container, KeyDometSize Size, class... Args>
+        auto getFindKeyType(const Container<KeyDometStr<std::string, Size>, Args...>& s) ->
+        // if container's comparator is transparent, use string_view-based key
+        // else, use a full-blown string-based key
+        std::conditional_t<
+                decltype(isTransparent(s))::value,
+                KeyDometStr<string_view, Size>,
+                KeyDometStr<std::string, Size>
+        >;
+        //TODO make the above more generic - basic string type, view type and conversion function or so.
+        // make string -> string_view the default and example implementation.
+    }
+
+    template<template<class, class...> class Container, class KD, class... Args>
+    auto makeFindKey(const Container<KD, Args...>& s, const std::string& key)
+    {
+        // associative containers (maps, sets) can use a transparent comparator. such a comperator can
+        // compare the internal key type with other types (as long as there's an appropriate operator).
+        // this allows such containers to hold strings but search using string_views, saving the allocation.
+        // *** Note: to make a container associative, define it with the less<> comparator:
+        // *** using KeydometSet = std::set<KdmtStr, std::less<>>;
+        using KeyDometStrType = std::remove_const_t<decltype(imp::getFindKeyType(s))>;
+        return KeyDometStrType{key};
+    }
+*/
 }
+
+
+typedef kdmt::KeyDometStr<std::experimental::string_view, kdmt::KeyDometSize::SIZE_64BIT> kdmtStr;
 
 #endif //KEYDOMET_KEYDOMET_H

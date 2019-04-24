@@ -1,0 +1,10 @@
+#! /bin/bash
+
+i="10"
+while [ $i -lt 100 ] ; do
+	./../parse_db_percent ../origin/data.csv $i
+	time ./pyindex.py first$i/data db$i
+	rm -rf first* last* db$i
+	i=$[$i + 10]
+done
+

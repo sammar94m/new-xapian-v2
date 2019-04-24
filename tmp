@@ -1,0 +1,24 @@
+	backends/inmemory/KeyDomet.cc
+	backends/inmemory/KeyDomet.h
+	backends/inmemory/tmp.h
+	examples/dataBase/origin/data.csv
+	examples/dataBase/parse90
+	examples/parse90
+	testing-xapian/aaa
+	testing-xapian/barcelona
+	testing-xapian/chocolate wiki
+	testing-xapian/chocolate.txt
+	testing-xapian/docdata.glass
+	testing-xapian/flintlock
+	testing-xapian/football
+	testing-xapian/iamglass
+	testing-xapian/main.cpp
+	testing-xapian/main.o
+	testing-xapian/makefile
+	testing-xapian/postlist.glass
+	testing-xapian/prog
+	testing-xapian/rice
+	testing-xapian/tags
+	testing-xapian/termlist.glass
+	testing-xapian/tree
+

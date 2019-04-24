@@ -37,8 +37,9 @@
 #include "internaltypes.h"
 #include "omassert.h"
 #include "noreturn.h"
-#include "tmp.h"
+#include "KeyDomet.h"
 using namespace std;
+using namespace kdmt;
 
 // Class representing a posting (a term/doc pair, and
 // all the relevant positional information, is a single posting)
@@ -77,6 +78,8 @@ class InMemoryTermEntry {
 	    // FIXME - inefficient - use merge (and list<>)?
 	    sort(positions.begin(), positions.end());
 	}
+	InMemoryTermEntry(const kdmtStr& tname_) : tname(tname_){}
+	InMemoryTermEntry(const string& tname_) : tname(kdmtStr(tname_)){}
 };
 
 // Compare by document ID

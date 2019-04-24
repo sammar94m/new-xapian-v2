@@ -41,7 +41,7 @@
 #include <xapian/error.h>
 #include <xapian/valueiterator.h>
 
-#include "tmp.h"
+//#include "tmp.h"
 
 
 using std::make_pair;
@@ -626,8 +626,8 @@ InMemoryDatabase::positionlist_count(Xapian::docid did,
     }
     const InMemoryDoc &doc = termlists[did - 1];
 
-    InMemoryTermEntry temp;
-    temp.tname = kdmtStr(tname);
+    InMemoryTermEntry temp(tname);
+    //temp.tname = kdmtStr(tname);
     auto t = lower_bound(doc.terms.begin(), doc.terms.end(),
 			 temp, InMemoryTermEntryLessThan());
     if (t != doc.terms.end() && t->tname == kdmtStr(tname)) {
@@ -644,8 +644,8 @@ InMemoryDatabase::open_position_list(Xapian::docid did,
     if (usual(doc_exists(did))) {
 	const InMemoryDoc &doc = termlists[did - 1];
 
-	InMemoryTermEntry temp;
-	temp.tname = kdmtStr(tname);
+	InMemoryTermEntry temp(tname);
+	//temp.tname = kdmtStr(tname);
 	auto t = lower_bound(doc.terms.begin(), doc.terms.end(),
 			     temp, InMemoryTermEntryLessThan());
 	if (t != doc.terms.end() && t->tname == kdmtStr(tname)) {
@@ -912,8 +912,8 @@ void InMemoryDatabase::make_posting(InMemoryDoc * doc,
     postlists[kdmtStr(tname)].add_posting(posting);
 
     // Make the termentry
-    InMemoryTermEntry termentry;
-    termentry.tname = kdmtStr(tname);
+    InMemoryTermEntry termentry(tname);
+    //termentry.tname = kdmtStr(tname);
     if (use_position) {
 	termentry.positions.push_back(position);
     }
